@@ -23,7 +23,7 @@ import shutil
 from functools import wraps
 import sys
 import glob
-#from pysheds.grid import Grid # type: ignore
+from pysheds.grid import Grid # type: ignore
 import rasterio # type: ignore
 import numpy as np # type: ignore
 from shapely.geometry import Polygon # type: ignore
@@ -174,7 +174,10 @@ class GeofabricDelineator:
         ]
 
         for step in steps:
-            self.run_command(f"-n {self.mpi_processes} {step}")
+            if self.mpi_processes > 1:
+                self.run_command(f"-n {self.mpi_processes} {step}")
+            else:
+                self.run_command(step)
             self.logger.info(f"Completed TauDEM step: {step}")
 
     def _clean_geometries(self, geometry):
@@ -1068,8 +1071,14 @@ class LumpedWatershedDelineator:
             # Compute flow direction
             fdir = grid.flowdir(inflated_dem)
 
+            # Compute flow accumulation
+            acc = grid.accumulation(fdir)
+
+            # Snap pour point to high accumulation cell
+            x_snap, y_snap = grid.snap_to_mask(acc > 1000, (x, y))
+
             # Delineate the catchment
-            catch = grid.catchment(x, y, fdir, xytype='coordinate')
+            catch = grid.catchment(x=x_snap, y=y_snap, fdir=fdir, xytype='coordinate')
 
             # Create a binary mask of the catchment
             mask = np.where(catch, 1, 0).astype(np.uint8)
@@ -1165,14 +1174,24 @@ class LumpedWatershedDelineator:
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         # TauDEM processing steps for lumped watershed delineation
-        steps = [
-            f"mpirun -n {self.mpi_processes} pitremove -z {self.dem_path} -fel {self.output_dir}/fel.tif",
-            f"mpirun -n {self.mpi_processes} d8flowdir -fel {self.output_dir}/fel.tif -p {self.output_dir}/p.tif -sd8 {self.output_dir}/sd8.tif",
-            f"mpirun -n {self.mpi_processes} aread8 -p {self.output_dir}/p.tif -ad8 {self.output_dir}/ad8.tif",
-            f"mpirun -n {self.mpi_processes} threshold -ssa {self.output_dir}/ad8.tif -src {self.output_dir}/src.tif -thresh 100",
-            f"mpirun -n {self.mpi_processes} moveoutletstostrm -p {self.output_dir}/p.tif -src {self.output_dir}/src.tif -o {pour_point_path} -om {self.output_dir}/om.shp",
-            f"mpirun -n {self.mpi_processes} gagewatershed -p {self.output_dir}/p.tif -o {self.output_dir}/om.shp -gw {self.output_dir}/watershed.tif -id {self.output_dir}/watershed_id.txt"
-        ]
+        if self.mpi_processes > 1:
+            steps = [
+                f"mpirun -n {self.mpi_processes} pitremove -z {self.dem_path} -fel {self.output_dir}/fel.tif",
+                f"mpirun -n {self.mpi_processes} d8flowdir -fel {self.output_dir}/fel.tif -p {self.output_dir}/p.tif -sd8 {self.output_dir}/sd8.tif",
+                f"mpirun -n {self.mpi_processes} aread8 -p {self.output_dir}/p.tif -ad8 {self.output_dir}/ad8.tif",
+                f"mpirun -n {self.mpi_processes} threshold -ssa {self.output_dir}/ad8.tif -src {self.output_dir}/src.tif -thresh 100",
+                f"mpirun -n {self.mpi_processes} moveoutletstostrm -p {self.output_dir}/p.tif -src {self.output_dir}/src.tif -o {pour_point_path} -om {self.output_dir}/om.shp",
+                f"mpirun -n {self.mpi_processes} gagewatershed -p {self.output_dir}/p.tif -o {self.output_dir}/om.shp -gw {self.output_dir}/watershed.tif -id {self.output_dir}/watershed_id.txt"
+            ]
+        else:
+            steps = [
+                f"pitremove -z {self.dem_path} -fel {self.output_dir}/fel.tif",
+                f"d8flowdir -fel {self.output_dir}/fel.tif -p {self.output_dir}/p.tif -sd8 {self.output_dir}/sd8.tif",
+                f"aread8 -p {self.output_dir}/p.tif -ad8 {self.output_dir}/ad8.tif",
+                f"threshold -ssa {self.output_dir}/ad8.tif -src {self.output_dir}/src.tif -thresh 100",
+                f"moveoutletstostrm -p {self.output_dir}/p.tif -src {self.output_dir}/src.tif -o {pour_point_path} -om {self.output_dir}/om.shp",
+                f"gagewatershed -p {self.output_dir}/p.tif -o {self.output_dir}/om.shp -gw {self.output_dir}/watershed.tif -id {self.output_dir}/watershed_id.txt"
+            ]
 
         for step in steps:
             self.run_command(step)
