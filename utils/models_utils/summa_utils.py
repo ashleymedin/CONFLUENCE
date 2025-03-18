@@ -1778,16 +1778,19 @@ class SummaPreProcessor_spatial:
                     
                     tmp_hist = []
                     for j in range(13):
-                        col_name = f'USGS_{j}'
+                        col_name = f'USDA_{j}'
                         if col_name in shp.columns:
                             tmp_hist.append(shp[col_name][shp_mask].values[0])
                         else:
                             tmp_hist.append(0)
                     
-                    tmp_hist[0] = -1
+                    tmp_hist[0] = -1 # 0 class is no data, glacier or water body
                     tmp_sc = np.argmax(np.asarray(tmp_hist))
-                    
-                    if shp[f'USGS_{tmp_sc}'][shp_mask].values != tmp_hist[tmp_sc]:
+
+                    if np.max(np.asarray(tmp_hist))==0:
+                        self.logger.warning(f'No valid soil class found for hru_id {attribute_hru}, make gravel/sand class')
+                        tmp_sc = 5
+                    elif shp[f'USDA_{tmp_sc}'][shp_mask].values != tmp_hist[tmp_sc]:
                         self.logger.warning(f'Index and mode soil class do not match at hru_id {attribute_hru}')
                         tmp_sc = -999
                     

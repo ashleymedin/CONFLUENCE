@@ -423,7 +423,7 @@ class geospatialStatistics:
             if x == 'count':
                 return x
             try:
-                return f'USGS_{int(float(x))}'
+                return f'USDA_{int(float(x))}' # USDA soil class
             except ValueError:
                 return x
 

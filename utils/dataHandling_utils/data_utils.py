@@ -414,7 +414,7 @@ class DataPreProcessor:
                 if x == 'count':
                     return x
                 try:
-                    return f'USGS_{int(float(x))}'
+                    return f'USDA_{int(float(x))}'
                 except ValueError:
                     return x
 
