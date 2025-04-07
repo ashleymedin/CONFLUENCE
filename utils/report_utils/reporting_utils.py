@@ -38,10 +38,19 @@ class VisualizationReporter:
             for sim_name, sim_file in model_outputs:
                 try:
                     ds = xr.open_mfdataset(sim_file, engine='netcdf4')
-                    basinID = int(self.config.get('SIM_REACH_ID'))  
-                    segment_index = ds['reachID'].values == basinID
-                    ds = ds.sel(seg=ds['seg'][segment_index])
-                    df = ds['IRFroutedRunoff'].to_dataframe().reset_index()
+                    if self.config['DOMAIN_DEFINITION_METHOD'] != 'lumped':
+                        basinID = int(self.config.get('SIM_REACH_ID'))  
+                        segment_index = ds['reachID'].values == basinID
+                        ds = ds.sel(seg=ds['seg'][segment_index])
+                        var = 'IRFroutedRunoff'
+                    else: # lumped domain definition has no routing, assume 1 GRU
+                        basinID = 0 # assume 1 GRU
+                        ds = ds.sel(gru=ds['gru'][basinID])
+                        var = 'averageRoutedRunoff' # m/s
+                        area = ds['HRUarea'].values.sum() # m2
+                    df = ds[var].to_dataframe().reset_index()
+                    if self.config['DOMAIN_DEFINITION_METHOD'] == 'lumped':
+                        df['averageRoutedRunoff'] = df['averageRoutedRunoff'] * area
                     df.set_index('time', inplace=True)
                     sim_data.append((sim_name, df))
                 except Exception as e:
@@ -91,9 +100,8 @@ class VisualizationReporter:
 
             # Plot simulations
             for (sim_name, sim), color, linestyle in zip(sim_data, colors, linestyles):
-                ax1.plot(sim.index, sim['IRFroutedRunoff'], label=f'Simulated ({sim_name})', 
+                ax1.plot(sim.index, sim[var], label=f'Simulated ({sim_name})', 
                         color=color, linestyle=linestyle, linewidth=1.5)
-
             # Add metrics if observations are available
             if obs_data and show_calib_eval_periods:
                 self._add_calibration_evaluation_metrics(ax1, obs_data, sim_data)
@@ -118,7 +126,7 @@ class VisualizationReporter:
                         self.plot_exceedance(ax2, obs.values, f'Observed ({obs_name})', color='black', linewidth=2.5)
 
                 for (sim_name, sim), color, linestyle in zip(sim_data, colors, linestyles):
-                    self.plot_exceedance(ax2, sim['IRFroutedRunoff'].values, f'Simulated ({sim_name})', 
+                    self.plot_exceedance(ax2, sim[var].values, f'Simulated ({sim_name})', 
                                     color=color, linestyle=linestyle, linewidth=1.5)
             except Exception as e:
                 self.logger.warning(f'Could not plot exceedance frequency: {str(e)}')
@@ -152,13 +160,17 @@ class VisualizationReporter:
         eval_end = pd.Timestamp('2018-12-31')
 
         for i, (sim_name, sim) in enumerate(sim_data):
+            if self.config['DOMAIN_DEFINITION_METHOD'] != 'lumped':
+                var = 'IRFroutedRunoff'
+            else: # lumped domain definition has no routing, assume 1 GRU
+                var = 'averageRoutedRunoff'
             aligned_calib = pd.merge(obs_data[0][1].loc[calib_start:calib_end], 
-                                    sim.loc[calib_start:calib_end, 'IRFroutedRunoff'], 
+                                    sim.loc[calib_start:calib_end, var], 
                                     left_index=True, right_index=True, how='inner')
             calib_metrics = self.calculate_metrics(aligned_calib.iloc[:, 0].values, aligned_calib.iloc[:, 1].values)
             
             aligned_eval = pd.merge(obs_data[0][1].loc[eval_start:eval_end], 
-                                    sim.loc[eval_start:eval_end, 'IRFroutedRunoff'], 
+                                    sim.loc[eval_start:eval_end, var], 
                                     left_index=True, right_index=True, how='inner')
             eval_metrics = self.calculate_metrics(aligned_eval.iloc[:, 0].values, aligned_eval.iloc[:, 1].values)
             
@@ -178,7 +190,11 @@ class VisualizationReporter:
         """Helper method to add overall metrics to the plot"""
         for i, (sim_name, sim) in enumerate(sim_data):
             sim.index = sim.index.round(freq='h')
-            aligned_data = pd.merge(obs_data[0][1], sim['IRFroutedRunoff'], 
+            if self.config['DOMAIN_DEFINITION_METHOD'] != 'lumped':
+                var = 'IRFroutedRunoff'
+            else: # lumped domain definition has no routing, assume 1 GRU
+                var = 'averageRoutedRunoff'
+            aligned_data = pd.merge(obs_data[0][1], sim[var], 
                                     left_index=True, right_index=True, how='inner')
             metrics = self.calculate_metrics(aligned_data.iloc[:, 0].values, aligned_data.iloc[:, 1].values)
             
