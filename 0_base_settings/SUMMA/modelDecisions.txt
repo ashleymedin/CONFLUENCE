@@ -9,12 +9,12 @@
 ! ***********************************************************************************************************************
 ! ***********************************************************************************************************************
 soilCatTbl                      ROSETTA         ! (03) soil-category dateset (STAS, STAS-RUC, ROSETTA)
-vegeParTbl                      MODIFIED_IGBP_MODIS_NOAH              ! (04) vegetation category dataset
+vegeParTbl                      MODIFIED_IGBP_MODIS_NOAH ! (04) vegetation category dataset
 soilStress                      NoahType        ! (05) choice of function for the soil moisture control on stomatal resistance
 stomResist                      BallBerry       ! (06) choice of function for stomatal resistance
 ! ***********************************************************************************************************************
-num_method                      itertive        ! (07) choice of numerical method
-fDerivMeth                      analytic        ! (08) method used to calculate flux derivatives
+num_method                      homegrown       ! (07) choice of numerical method
+fDerivMeth                      analytic        ! (08) method used to calculate Jacobian
 LAI_method                      monTable        ! (09) method used to determine LAI and SAI
 f_Richards                      mixdform        ! (10) form of Richard's equation
 groundwatr                      bigBuckt        ! (11) choice of groundwater parameterization
@@ -36,6 +36,8 @@ thCondSnow                      jrdn1991        ! (26) choice of thermal conduct
 thCondSoil                      funcSoilWet     ! (27) choice of thermal conductivity representation for soil
 spatial_gw                      localColumn     ! (28) choice of method for the spatial representation of groundwater
 subRouting                      qInstant        ! (29) choice of method for sub-grid routing
+nrgConserv                      closedForm      ! (30) choice of variable in energy equations (BE residual or IDA state variable)
+infRateMax                      GreenAmpt       ! (31) choice of infiltration rate method
 ! ***********************************************************************************************
 ! ***** description of the options available -- nothing below this point is read ****************
 ! ***********************************************************************************************
@@ -49,7 +51,7 @@ subRouting                      qInstant        ! (29) choice of method for sub-
 ! ROSETTA   ! merged Rosetta table with STAS-RUC
 ! -----------------------------------------------------------------------------------------------
 ! (04) vegetation category dataset
-! USGS      ! USGS 24/27 category dataset
+! USGS                      ! USGS 24/27 category dataset
 ! MODIFIED_IGBP_MODIS_NOAH  ! MODIS 20-category dataset
 ! -----------------------------------------------------------------------------------------------
 ! (05) choice of function for the soil moisture control on stomatal resistance
@@ -62,11 +64,11 @@ subRouting                      qInstant        ! (29) choice of method for sub-
 ! Jarvis    ! Jarvis
 ! -----------------------------------------------------------------------------------------------
 ! (07) choice of numerical method
-! itertive  ! iterative
-! non_iter  ! non-iterative
-! itersurf  ! iterate only on the surface energy balance
+! homegrown ! home-grown backward Euler
+! kinsol    ! SUNDIALS backward Euler solution using Kinsol
+! ida       ! SUNDIALS solution using IDA
 ! -----------------------------------------------------------------------------------------------
-! (08) method used to calculate flux derivatives
+! (08) method used to calculate Jacobian
 ! numericl  ! numerical derivatives
 ! analytic  ! analytical derivatives
 ! -----------------------------------------------------------------------------------------------
@@ -107,7 +109,7 @@ subRouting                      qInstant        ! (29) choice of method for sub-
 ! -----------------------------------------------------------------------------------------------
 ! (17) choice of parameterization for vegetation roughness length and displacement height
 ! Raupach_BLM1994  ! Raupach (BLM 1994) "Simplified expressions..."
-! CM_QJRMS1998     ! Choudhury and Monteith (QJRMS 1998) "A four layer model for the heat budget..."
+! CM_QJRMS1988     ! Choudhury and Monteith (QJRMS 1998) "A four layer model for the heat budget..."
 ! vegTypeTable     ! constant parameters dependent on the vegetation type
 ! -----------------------------------------------------------------------------------------------
 ! (18) choice of parameterization for canopy emissivity
@@ -119,7 +121,7 @@ subRouting                      qInstant        ! (29) choice of method for sub-
 ! lightSnow   ! maximum interception capacity an inverse function of new snow density
 ! -----------------------------------------------------------------------------------------------
 ! (20) choice of wind profile
-! exponential ! exponential wind profile extends to the surface
+! exponential    ! exponential wind profile extends to the surface
 ! logBelowCanopy ! logarithmic profile below the vegetation canopy
 ! -----------------------------------------------------------------------------------------------
 ! (21) choice of stability function
@@ -164,5 +166,14 @@ subRouting                      qInstant        ! (29) choice of method for sub-
 ! (29) choice of method for sub-grid routing
 ! timeDlay  ! time-delay histogram
 ! qInstant  ! instantaneous routing
+! -----------------------------------------------------------------------------------------------
+! (30) choice of variable in energy equations (BE residual or IDA state variable)
+! closedForm      ! use temperature with closed form heat capacity
+! enthalpyFormLU  ! use enthalpy with soil temperature-enthalpy lookup tables
+! enthalpyForm    ! use enthalpy with soil temperature-enthalpy analytical solutions
+! -----------------------------------------------------------------------------------------------
+! (31) choice of infiltration rate method
+! GreenAmpt   ! Green-Ampt
+! topmodel_GA ! Green-Ampt with TOPMODEL conductivity rate
+! noInfExc    ! no infiltration excess runoff (saturation excess may still occur)
 ! ***********************************************************************************************
-! history Wed Jul 29 16:01:34 2020: /home/wknoben/summa/utils/convert_summa_config_v2_v3.py fileManager.txt
