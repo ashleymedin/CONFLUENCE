@@ -100,6 +100,9 @@ infRateMax                      GreenAmpt       ! (31) choice of infiltration ra
 ! (15) choice of upper boundary conditions for soil hydrology
 ! presHead  ! prescribed head (volumetric liquid water content for mixed form of Richards' eqn)
 ! liq_flux  ! liquid water flux
+! FUSEPRMS  ! FUSE PRMS surface runoff
+! FUSEAVIC  ! FUSE ARNO/VIC surface runoff
+! FUSETOPM  ! FUSE TOPMODEL surface runoff
 ! -----------------------------------------------------------------------------------------------
 ! (16) choice of lower boundary conditions for soil hydrology
 ! drainage  ! free draining
